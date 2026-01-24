@@ -15,9 +15,20 @@ def test_note_collapses_whitespace_and_filters_empty_citations() -> None:
 
     note = build_pharmacist_note([flag])
 
-    assert "[HIGH PRIORITY] drug interaction: Avoid combo of X and Y." in note
-    assert "- Line 1 Line 2" in note
-    assert "Citations: Example guideline" in note
+    # Check for HTML structure
+    assert "<div class=\"ehr-risk-item\">" in note
+    
+    # Check humanized and cleaned text
+    # Severity is now UPPERCASE in the badge
+    assert "HIGH PRIORITY" in note 
+    assert "Drug Interaction" in note
+    assert "Avoid combo of X and Y." in note
+    
+    # Check evidence listing
+    assert "<li>Line 1 Line 2</li>" in note
+    
+    # Check citations
+    assert "Refs: Example guideline" in note
 
 
 def test_note_dedupes_verification_questions() -> None:
@@ -37,12 +48,12 @@ def test_note_dedupes_verification_questions() -> None:
     ]
 
     note = build_pharmacist_note(flags)
-
-    question = "- Can you verify or clarify for 'test-flag': Example summary?"
-    assert note.count(question) == 1
+    
+    question_part = "Can you verify or clarify for <b>Test-Flag</b>: Example summary?"
+    assert note.count(question_part) == 1
 
 
 def test_note_verification_questions_none_identified_when_no_flags() -> None:
     note = build_pharmacist_note([])
 
-    assert "Suggested verification questions\n- None identified.\n" in note
+    assert "<div class='ehr-empty'>None identified.</div>" in note

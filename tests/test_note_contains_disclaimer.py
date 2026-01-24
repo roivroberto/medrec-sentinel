@@ -14,4 +14,4 @@ def test_note_contains_disclaimer_and_citations() -> None:
 
     assert "not medical advice" in note.lower()
     assert "Example guideline" in note
-    assert note.endswith("\n")
+    assert "</div> <!-- End Container -->" in note
