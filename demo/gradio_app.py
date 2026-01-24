@@ -244,6 +244,8 @@ def build_demo():
         primary_hue="teal",
         secondary_hue="cyan",
         neutral_hue="slate",
+        font=["Noto Sans", "DejaVu Sans", "Liberation Sans", "sans-serif"],
+        font_mono=["Noto Sans Mono", "DejaVu Sans Mono", "monospace"],
     )
 
     EXAMPLE_WARFARIN_NSAID = """Discharge meds: warfarin 5 mg daily, ibuprofen 400 mg prn.
