@@ -1,0 +1,6 @@
+# GPU-only / optional deps
+#
+# Note: Kaggle images typically come with a working CUDA-enabled torch.
+# Avoid force-installing torch from pip unless you know you need to.
+
+bitsandbytes; platform_system == "Linux"

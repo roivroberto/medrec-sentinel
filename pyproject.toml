@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "medrec-sentinel"
+version = "0.0.0"
+description = "MedRec Sentinel"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "transformers<5",
+    "accelerate<2",
+    "pydantic<3",
+    "gradio<6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "black"]
+gpu = ["bitsandbytes; platform_system == \"Linux\""]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["medrec_sentinel*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

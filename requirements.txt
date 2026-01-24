@@ -1,0 +1,4 @@
+transformers<5
+accelerate<2
+pydantic<3
+gradio<6
