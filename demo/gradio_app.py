@@ -147,106 +147,6 @@ def build_demo():
     """
 
     import gradio as gr
-    from gradio.themes import Soft
-
-    css = """
-:root {
-  --ms-brand: #0f766e;
-  --ms-brand-2: #115e59;
-  --ms-ink: #0b1320;
-  --ms-muted: #4b5563;
-  --ms-bg: #f7f6f3;
-  --ms-card: #ffffff;
-  --ms-border: rgba(15, 23, 42, 0.10);
-}
-
-.gradio-container {
-  background:
-    radial-gradient(900px 500px at 12% 8%, rgba(15, 118, 110, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 88% 12%, rgba(2, 132, 199, 0.10), transparent 55%),
-    radial-gradient(700px 420px at 70% 92%, rgba(244, 63, 94, 0.06), transparent 60%),
-    var(--ms-bg);
-  color: var(--ms-ink);
-  font-family: "Noto Sans", "DejaVu Sans", "Liberation Sans", sans-serif;
-}
-
-#ms-hero {
-  background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(2, 132, 199, 0.10));
-  border: 1px solid var(--ms-border);
-  border-radius: 16px;
-  padding: 16px 18px;
-  margin-bottom: 12px;
-}
-
-#ms-hero h1 {
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: -0.02em;
-}
-
-#ms-hero p {
-  margin: 6px 0 0 0;
-  color: var(--ms-muted);
-  line-height: 1.35;
-}
-
-.ms-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.ms-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--ms-border);
-  background: rgba(255, 255, 255, 0.65);
-  color: var(--ms-ink);
-  font-size: 12px;
-}
-
-.ms-badge strong {
-  color: var(--ms-brand-2);
-}
-
-.ms-panel {
-  background: var(--ms-card);
-  border: 1px solid var(--ms-border);
-  border-radius: 16px;
-  padding: 14px 14px;
-}
-
-.ms-panel h3 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  letter-spacing: -0.01em;
-}
-
-.ms-hint {
-  color: var(--ms-muted);
-  font-size: 12px;
-  margin-top: 6px;
-}
-
-.ms-status {
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--ms-border);
-  background: rgba(15, 118, 110, 0.06);
-}
-"""
-
-    theme = Soft(
-        primary_hue="teal",
-        secondary_hue="cyan",
-        neutral_hue="slate",
-        font=["Noto Sans", "DejaVu Sans", "Liberation Sans", "sans-serif"],
-        font_mono=["Noto Sans Mono", "DejaVu Sans Mono", "monospace"],
-    )
 
     EXAMPLE_WARFARIN_NSAID = """Discharge meds: warfarin 5 mg daily, ibuprofen 400 mg prn.
 
@@ -264,40 +164,11 @@ Labs: eGFR 25 mL/min/1.73m2
         egfr: float | None,
         mode: str,
         override_extracted: bool,
-        preview_baseline: bool,
     ):
         if not discharge_note.strip():
-            yield (
-                "<div class='ms-status'><strong>Error:</strong> discharge note is required.</div>",
-                [],
-                [],
-                "",
-                "",
-            )
-            return
-
-        def _format_status(text: str) -> str:
-            return f"<div class='ms-status'>{text}</div>"
+            return [], [], "Error: discharge note is required.", ""
 
         try:
-            if mode == "medgemma" and preview_baseline:
-                meds_rows, flags_rows, note, trace = run_case_for_demo(
-                    discharge_note=discharge_note,
-                    allergies_text=allergies_text,
-                    egfr=egfr,
-                    mode="baseline",
-                    override_extracted=override_extracted,
-                )
-                yield (
-                    _format_status(
-                        "<strong>Baseline preview</strong> (fast) while MedGemma runs..."
-                    ),
-                    meds_rows,
-                    flags_rows,
-                    note,
-                    trace,
-                )
-
             meds_rows, flags_rows, note, trace = run_case_for_demo(
                 discharge_note=discharge_note,
                 allergies_text=allergies_text,
@@ -305,171 +176,94 @@ Labs: eGFR 25 mL/min/1.73m2
                 mode=mode,
                 override_extracted=override_extracted,
             )
-            yield (
-                _format_status(
-                    f"<strong>Done.</strong> Mode: <code>{mode}</code>"
-                ),
-                meds_rows,
-                flags_rows,
-                note,
-                trace,
-            )
+            return meds_rows, flags_rows, note, trace
         except Exception:
             error_id = str(uuid.uuid4())
             print(
                 f"[gradio_demo_error:{error_id}]\n{traceback.format_exc()}",
                 file=sys.stderr,
             )
-            yield (
-                _format_status(
-                    f"<strong>Error:</strong> pipeline failed (error id: <code>{error_id}</code>)."
-                ),
-                [],
-                [],
-                "",
-                "",
-            )
+            return [], [], f"Error running pipeline (error id: {error_id}).", ""
 
-    with gr.Blocks(title="MedRec Sentinel Demo", theme=theme, css=css) as demo:
-        gr.HTML(
-            """
-            <div id="ms-hero">
-              <h1>MedRec Sentinel</h1>
-              <p>
-                Audit-first discharge medication reconciliation: extraction tool + schema validation + repair loop + deterministic safety checks.
-              </p>
-              <div class="ms-badges">
-                <span class="ms-badge"><strong>Baseline</strong> reproducible</span>
-                <span class="ms-badge"><strong>MedGemma</strong> optional</span>
-                <span class="ms-badge"><strong>Agent trace</strong> visible</span>
-                <span class="ms-badge"><strong>No PHI</strong> in demo</span>
-              </div>
-            </div>
-            """
+    with gr.Blocks(title="MedRec Sentinel Demo") as demo:
+        gr.Markdown(
+            "# MedRec Sentinel\n\n"
+            "A pharmacist-in-the-loop medication reconciliation assistant.\n\n"
+            "Safety notes:\n"
+            "- Do not paste real patient identifiers/PHI into this demo.\n"
+            "- Outputs are drafts for clinician review (not medical advice).\n\n"
+            "MedGemma mode can be slow on small GPUs; the first run will warm up the model.\n\n"
+            "MedGemma precedence: leave allergies/eGFR blank to use extracted values; "
+            "enable override to force your inputs (including empty/None)."
         )
 
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=5):
-                with gr.Group(elem_classes=["ms-panel"]):
-                    gr.Markdown("### Inputs")
-                    mode_in = gr.Radio(
-                        choices=["baseline", "medgemma"],
-                        value="baseline",
-                        label="Mode",
-                    )
+        with gr.Row():
+            mode_in = gr.Radio(
+                choices=["baseline", "medgemma"],
+                value="baseline",
+                label="Mode",
+            )
 
-                    discharge_in = gr.Textbox(
-                        label="Discharge note",
-                        lines=14,
-                        placeholder="Paste discharge note text here...",
-                    )
+        discharge_in = gr.Textbox(
+            label="Discharge note",
+            lines=16,
+            placeholder="Paste discharge note text here...",
+        )
 
-                    with gr.Row():
-                        allergies_in = gr.Textbox(
-                            label="Allergies (optional)",
-                            placeholder="e.g. penicillin, sulfa",
-                        )
-                        egfr_in = gr.Number(
-                            label="eGFR (optional)",
-                            precision=2,
-                        )
+        with gr.Row():
+            allergies_in = gr.Textbox(
+                label="Allergies (optional, comma-separated)",
+                placeholder="e.g. penicillin, sulfa",
+            )
+            egfr_in = gr.Number(
+                label="eGFR (optional)",
+                precision=2,
+            )
 
-                    with gr.Row():
-                        override_in = gr.Checkbox(
-                            label="Override extracted allergies/eGFR (MedGemma)",
-                            value=False,
-                        )
-                        preview_in = gr.Checkbox(
-                            label="Show baseline preview while MedGemma runs",
-                            value=True,
-                        )
+        override_in = gr.Checkbox(
+            label="Override extracted allergies/eGFR (MedGemma only)",
+            value=False,
+        )
 
-                    gr.Examples(
-                        examples=[
-                            [EXAMPLE_WARFARIN_NSAID, "", None, "baseline", False, True],
-                            [EXAMPLE_WARFARIN_NSAID, "", None, "medgemma", False, True],
-                            [EXAMPLE_METFORMIN_EGFR, "", None, "baseline", False, True],
-                            [EXAMPLE_METFORMIN_EGFR, "", None, "medgemma", False, True],
-                        ],
-                        inputs=[
-                            discharge_in,
-                            allergies_in,
-                            egfr_in,
-                            mode_in,
-                            override_in,
-                            preview_in,
-                        ],
-                        label="Examples (synthetic)",
-                    )
+        gr.Examples(
+            examples=[
+                [EXAMPLE_WARFARIN_NSAID, "", None, "baseline", False],
+                [EXAMPLE_WARFARIN_NSAID, "", None, "medgemma", False],
+                [EXAMPLE_METFORMIN_EGFR, "", None, "baseline", False],
+                [EXAMPLE_METFORMIN_EGFR, "", None, "medgemma", False],
+            ],
+            inputs=[discharge_in, allergies_in, egfr_in, mode_in, override_in],
+            label="Examples (synthetic)",
+        )
 
-                    run_btn = gr.Button("Run", variant="primary")
-                    gr.Markdown(
-                        "<div class='ms-hint'>Tip: the first MedGemma run warms the model; subsequent runs are faster.</div>"
-                    )
+        run_btn = gr.Button("Run", variant="primary")
 
-            with gr.Column(scale=7):
-                with gr.Group(elem_classes=["ms-panel"]):
-                    gr.Markdown("### Outputs")
-                    status_out = gr.HTML(
-                        "<div class='ms-status'><strong>Ready.</strong> Choose an example or paste a note.</div>"
-                    )
+        meds_out = gr.Dataframe(
+            label="Extracted meds",
+            headers=["name", "dose", "route", "frequency", "prn", "start", "stop"],
+            datatype=["str", "str", "str", "str", "str", "str", "str"],
+            row_count=(0, "dynamic"),
+            col_count=(7, "fixed"),
+        )
+        flags_out = gr.Dataframe(
+            label="Risk flags",
+            headers=["severity", "type", "summary", "citations"],
+            datatype=["str", "str", "str", "str"],
+            row_count=(0, "dynamic"),
+            col_count=(4, "fixed"),
+        )
+        note_out = gr.Textbox(label="Pharmacist note", lines=10)
 
-                    with gr.Tabs():
-                        with gr.Tab("Extracted"):
-                            meds_out = gr.Dataframe(
-                                label="Extracted meds",
-                                headers=[
-                                    "name",
-                                    "dose",
-                                    "route",
-                                    "frequency",
-                                    "prn",
-                                    "start",
-                                    "stop",
-                                ],
-                                datatype=[
-                                    "str",
-                                    "str",
-                                    "str",
-                                    "str",
-                                    "str",
-                                    "str",
-                                    "str",
-                                ],
-                                row_count=(0, "dynamic"),
-                                col_count=(7, "fixed"),
-                            )
-
-                        with gr.Tab("Risks"):
-                            flags_out = gr.Dataframe(
-                                label="Risk flags",
-                                headers=["severity", "type", "summary", "citations"],
-                                datatype=["str", "str", "str", "str"],
-                                row_count=(0, "dynamic"),
-                                col_count=(4, "fixed"),
-                            )
-
-                        with gr.Tab("Draft note"):
-                            note_out = gr.Textbox(label="Pharmacist note", lines=14)
-
-                        with gr.Tab("Agent trace"):
-                            trace_out = gr.Textbox(
-                                label="Agent trace (timings)",
-                                lines=10,
-                                interactive=False,
-                            )
+        trace_out = gr.Textbox(
+            label="Agent trace (timings)",
+            lines=8,
+            interactive=False,
+        )
 
         run_btn.click(
             fn=_run,
-            inputs=[
-                discharge_in,
-                allergies_in,
-                egfr_in,
-                mode_in,
-                override_in,
-                preview_in,
-            ],
-            outputs=[status_out, meds_out, flags_out, note_out, trace_out],
+            inputs=[discharge_in, allergies_in, egfr_in, mode_in, override_in],
+            outputs=[meds_out, flags_out, note_out, trace_out],
         )
 
     return demo
