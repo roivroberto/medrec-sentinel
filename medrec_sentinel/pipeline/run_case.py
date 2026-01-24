@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from medrec_sentinel.extract.baseline import extract_medications_baseline
 from medrec_sentinel.extract.meds import extract_with_medgemma
-from medrec_sentinel.llm.medgemma import DEFAULT_MODEL_ID
+from medrec_sentinel.llm.medgemma import default_model_id
 from medrec_sentinel.report.note import build_pharmacist_note
 from medrec_sentinel.rules.engine import run_risk_checks
 from medrec_sentinel.schemas import CaseInput, PipelineOutput
@@ -41,7 +41,7 @@ def run_case(case: CaseInput, mode: str = "baseline") -> PipelineOutput:
         if "egfr_ml_min_1_73m2" in case.model_fields_set:
             egfr = case.egfr_ml_min_1_73m2
 
-        model_metadata = {"mode": "medgemma", "model_id": DEFAULT_MODEL_ID}
+        model_metadata = {"mode": "medgemma", "model_id": default_model_id()}
 
     flags = run_risk_checks(meds, allergies, egfr)
     note = build_pharmacist_note(flags)

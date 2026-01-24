@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -83,6 +84,8 @@ def parse_extraction_output(json_text: str) -> ExtractionResult:
                 parsed, _end = decoder.raw_decode(candidate[idx:])
             except json.JSONDecodeError:
                 continue
+            if isinstance(parsed, list):
+                parsed = {"medications": parsed}
             return ExtractionResult.model_validate(parsed)
 
     snippet = re.sub(r"\s+", " ", text).strip()
@@ -94,5 +97,23 @@ def extract_with_medgemma(note: str) -> ExtractionResult:
     from medrec_sentinel.llm.medgemma import generate
 
     prompt = build_extraction_prompt(note)
-    raw = generate(prompt, max_new_tokens=1024, temperature=0.0)
-    return parse_extraction_output(raw)
+
+    try:
+        max_new_tokens = int(os.environ.get("MEDGEMMA_MAX_NEW_TOKENS", "256"))
+    except ValueError:
+        max_new_tokens = 256
+
+    try:
+        raw = generate(prompt, max_new_tokens=max_new_tokens, temperature=0.0)
+        return parse_extraction_output(raw)
+    except Exception:
+        # Occasionally the model emits non-JSON; retry once with a stricter
+        # instruction and a slightly larger generation budget.
+        retry_prompt = (
+            prompt
+            + "\n\nIMPORTANT: Output ONLY valid JSON for the schema above. "
+            + "Return a single JSON object (not an array). No prose, no markdown."
+        )
+        retry_tokens = max(max_new_tokens, 256)
+        raw = generate(retry_prompt, max_new_tokens=retry_tokens, temperature=0.0)
+        return parse_extraction_output(raw)

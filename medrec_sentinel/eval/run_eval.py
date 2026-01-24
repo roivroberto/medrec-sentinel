@@ -145,10 +145,18 @@ def main(argv: list[str] | None = None) -> int:
         default="baseline",
         help="Which mode(s) to evaluate",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Optional maximum number of rows to evaluate",
+    )
     args = parser.parse_args(argv)
 
     data_path = Path(args.data)
     rows = _read_jsonl(data_path)
+    if args.limit is not None:
+        rows = rows[: max(0, args.limit)]
 
     modes = ["baseline"] if args.mode == "baseline" else ["medgemma"]
     if args.mode == "both":

@@ -1,14 +1,37 @@
 import importlib
 import importlib.util
 import json
+import os
 import re
 import threading
+from pathlib import Path
 from typing import Any
 
-DEFAULT_MODEL_ID = "google/medgemma-4b-it"
+HF_MODEL_ID = "google/medgemma-4b-it"
+
+
+def default_model_id() -> str:
+    """Return a default model id/path.
+
+    Priority:
+    1) MEDGEMMA_MODEL_ID / MEDGEMMA_MODEL_PATH env var
+    2) local snapshot under <repo>/models/google__medgemma-4b-it
+    3) Hugging Face repo id (HF_MODEL_ID)
+    """
+
+    env = os.environ.get("MEDGEMMA_MODEL_ID") or os.environ.get("MEDGEMMA_MODEL_PATH")
+    if env:
+        return env
+
+    repo_root = Path(__file__).resolve().parents[2]
+    local = repo_root / "models" / "google__medgemma-4b-it"
+    if local.exists():
+        return str(local)
+
+    return HF_MODEL_ID
 
 _MODEL: Any | None = None
-_TOKENIZER: Any | None = None
+_PROCESSOR: Any | None = None
 _MODEL_ID: str | None = None
 
 _LOAD_LOCK = threading.Lock()
@@ -69,83 +92,118 @@ def _lazy_import_torch() -> Any:
 
 
 def load_model(model_id: str, device_map: str = "auto"):
-    """Load tokenizer + model.
+    """Load processor + model.
 
     Uses 4-bit quantization (BitsAndBytesConfig(load_in_4bit=True)) when
     transformers and bitsandbytes are available.
     """
 
-    global _MODEL, _TOKENIZER, _MODEL_ID
+    global _MODEL, _PROCESSOR, _MODEL_ID
 
     with _LOAD_LOCK:
-        if _MODEL is not None and _TOKENIZER is not None and _MODEL_ID == model_id:
-            return _MODEL, _TOKENIZER
+        if _MODEL is not None and _PROCESSOR is not None and _MODEL_ID == model_id:
+            return _MODEL, _PROCESSOR
 
         transformers = _lazy_import_transformers()
-        _lazy_import_torch()
+        torch = _lazy_import_torch()
 
         quantization_config = None
         bnb_cls = getattr(transformers, "BitsAndBytesConfig", None)
         if bnb_cls is not None and importlib.util.find_spec("bitsandbytes") is not None:
             try:
-                quantization_config = bnb_cls(load_in_4bit=True)
+                # Prefer a memory-efficient 4-bit config so the model is more
+                # likely to fit on consumer GPUs; allow CPU offload if needed.
+                bnb_compute_dtype = torch.float16
+                if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+                    bnb_compute_dtype = torch.bfloat16
+
+                quantization_config = bnb_cls(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=bnb_compute_dtype,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                    llm_int8_enable_fp32_cpu_offload=True,
+                )
             except Exception:
                 quantization_config = None
 
-        tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)
+        processor = transformers.AutoProcessor.from_pretrained(model_id)
 
-        model = transformers.AutoModelForCausalLM.from_pretrained(
+        torch_dtype = torch.bfloat16
+        if torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
+            torch_dtype = torch.float16
+
+        model_kwargs: dict[str, Any] = {
+            "torch_dtype": torch_dtype,
+            "quantization_config": quantization_config,
+        }
+
+        use_cuda = False
+        if quantization_config is None:
+            # Non-quantized loads rely on Accelerate's device_map/offload.
+            model_kwargs["device_map"] = device_map
+        else:
+            # bitsandbytes + accelerate dispatch can be fragile on some setups.
+            # Prefer a single-device load and then move the model to CUDA.
+            use_cuda = torch.cuda.is_available() and (device_map or "auto") != "cpu"
+
+        model = transformers.AutoModelForImageTextToText.from_pretrained(
             model_id,
-            device_map=device_map,
-            quantization_config=quantization_config,
+            **model_kwargs,
         )
+
+        if use_cuda and hasattr(model, "to"):
+            try:
+                model = model.to("cuda")
+            except Exception as e:
+                # If the quantized model still doesn't fit, keep it on CPU.
+                msg = str(e).lower()
+                if "out of memory" not in msg:
+                    raise
         try:
             model.eval()
         except Exception:
             pass
 
         _MODEL = model
-        _TOKENIZER = tokenizer
+        _PROCESSOR = processor
         _MODEL_ID = model_id
-        return model, tokenizer
+        return model, processor
 
 
-def _render_prompt(tokenizer: Any, prompt: str) -> dict[str, Any]:
-    if hasattr(tokenizer, "apply_chat_template"):
-        messages = [{"role": "user", "content": prompt}]
+def _render_prompt(processor: Any, prompt: str) -> Any:
+    if hasattr(processor, "apply_chat_template"):
+        # MedGemma expects a list of chat messages whose content is a list of
+        # typed segments.
+        messages = [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": prompt}],
+            }
+        ]
         try:
-            out = tokenizer.apply_chat_template(
+            out = processor.apply_chat_template(
                 messages,
                 add_generation_prompt=True,
-                return_tensors="pt",
+                tokenize=True,
                 return_dict=True,
+                return_tensors="pt",
             )
             if isinstance(out, dict) and "input_ids" in out:
-                return {
-                    "input_ids": out["input_ids"],
-                    "attention_mask": out.get("attention_mask"),
-                }
-        except TypeError:
+                return out
+        except Exception:
             pass
 
-        input_ids = tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            return_tensors="pt",
-        )
-        return {"input_ids": input_ids, "attention_mask": None}
-
-    enc = tokenizer(prompt, return_tensors="pt")
-    return {"input_ids": enc["input_ids"], "attention_mask": enc.get("attention_mask")}
+    return processor(text=prompt, return_tensors="pt")
 
 
-def _decode_generated(tokenizer: Any, input_ids: Any, output_ids: Any) -> str:
+def _decode_generated(processor: Any, input_ids: Any, output_ids: Any) -> str:
     try:
         # Common HF pattern: output includes the prompt prefix.
         gen_only = output_ids[0][input_ids.shape[-1] :]
-        return tokenizer.decode(gen_only, skip_special_tokens=True)
+        return processor.decode(gen_only, skip_special_tokens=True)
     except Exception:
-        return tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        return processor.decode(output_ids[0], skip_special_tokens=True)
 
 
 def generate(prompt: str, *, max_new_tokens: int, temperature: float) -> str:
@@ -154,25 +212,35 @@ def generate(prompt: str, *, max_new_tokens: int, temperature: float) -> str:
     If JSON extraction/parsing fails, retries up to 2 times with a repair prompt.
     """
 
-    global _MODEL, _TOKENIZER
+    global _MODEL, _PROCESSOR
 
-    if _MODEL is None or _TOKENIZER is None:
-        load_model(DEFAULT_MODEL_ID)
+    if _MODEL is None or _PROCESSOR is None:
+        device_map = os.environ.get("MEDGEMMA_DEVICE_MAP", "auto")
+        load_model(default_model_id(), device_map=device_map)
 
-    assert _MODEL is not None
-    assert _TOKENIZER is not None
+    model: Any = _MODEL
+    processor: Any = _PROCESSOR
+    assert model is not None
+    assert processor is not None
 
     def _one_shot(p: str, *, temp: float) -> str:
         torch = _lazy_import_torch()
 
-        inputs = _render_prompt(_TOKENIZER, p)
-        if inputs.get("attention_mask") is None:
+        inputs: Any = _render_prompt(processor, p)
+        if inputs.get("attention_mask") is None and inputs.get("input_ids") is not None:
             inputs["attention_mask"] = torch.ones_like(inputs["input_ids"])
 
-        if hasattr(_MODEL, "device"):
+        input_len = inputs["input_ids"].shape[-1]
+
+        if hasattr(inputs, "to") and hasattr(model, "device"):
+            try:
+                inputs = inputs.to(model.device, dtype=getattr(model, "dtype", None))
+            except Exception:
+                inputs = inputs.to(model.device)
+        elif hasattr(model, "device"):
             for k, v in list(inputs.items()):
                 if hasattr(v, "to"):
-                    inputs[k] = v.to(_MODEL.device)
+                    inputs[k] = v.to(model.device)
 
         gen_kwargs: dict[str, Any] = {
             "max_new_tokens": max_new_tokens,
@@ -181,9 +249,14 @@ def generate(prompt: str, *, max_new_tokens: int, temperature: float) -> str:
             gen_kwargs.update({"do_sample": True, "temperature": temp})
 
         with torch.inference_mode():
-            output_ids = _MODEL.generate(**inputs, **gen_kwargs)
+            output_ids = model.generate(**inputs, **gen_kwargs)
 
-        return _decode_generated(_TOKENIZER, inputs["input_ids"], output_ids)
+        # slice off the prompt prefix for cleaner decoding
+        try:
+            gen_only = output_ids[0][input_len:]
+            return processor.decode(gen_only, skip_special_tokens=True)
+        except Exception:
+            return _decode_generated(processor, inputs["input_ids"], output_ids)
 
     last_text = _one_shot(prompt, temp=temperature)
     for attempt in range(3):
