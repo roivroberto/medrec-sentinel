@@ -74,7 +74,7 @@ Kaggle: set `HUGGINGFACE_TOKEN` as a Kaggle Secret, then run `notebooks/kaggle_s
 - `notebooks/kaggle_submission.py` will auto-detect the repo under `/kaggle/input/<dataset>`.
   - If auto-detect fails, set `MEDREC_SENTINEL_ROOT=/kaggle/input/<dataset>`.
 
-## Submission Checklist
+## Kaggle Submission
 
-For the step-by-step submission flow (video link + Kaggle Writeup + repo link), see:
-- `docs/plans/2026-01-24-kaggle-submission.md`
+For a concise, step-by-step checklist (video link + Kaggle Writeup + repo link), see:
+- `docs/kaggle_submission.md`
