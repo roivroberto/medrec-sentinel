@@ -7,10 +7,11 @@ Judges (Google Research / DeepMind / Google Health AI). Assume they care about i
 ## Setup (before recording)
 
 - Have the Gradio app ready: `python3 demo/gradio_app.py`
-- Prepare 2 example discharge notes:
-  - One that triggers warfarin + NSAID
-  - One that triggers metformin + low eGFR
-- Have a terminal tab ready to run baseline eval: `python3 -m medrec_sentinel.eval.run_eval --data data/synth/cases.jsonl --mode baseline`
+- Use the built-in **TEST VECTORS** in the UI (synthetic examples):
+  - warfarin + NSAID
+  - metformin + low eGFR
+- Have a terminal tab ready to run baseline eval (fast):
+  - `python3 -m medrec_sentinel.eval.run_eval --data data/synth/cases.jsonl --mode baseline --limit 10`
 
 ## Timeline
 
@@ -26,25 +27,28 @@ Judges (Google Research / DeepMind / Google Health AI). Assume they care about i
 
 ### 0:30 - 1:50 Live demo (baseline mode first)
 
-1) Paste the example discharge note.
-2) Select `baseline`.
-3) Click Run.
-4) Narrate outputs:
-   - extracted medication table
-   - risk flags (severity + type + summary + citations)
-   - pharmacist note with verification questions and disclaimer
+1) Select a case from **TEST VECTORS** (synthetic).
+2) Keep **INFERENCE ENGINE = baseline** (default).
+3) Click **INITIALIZE ANALYSIS SEQUENCE**.
+4) Narrate the key tabs:
+   - **NOTE GENERATION**: draft pharmacist note, verification questions, disclaimer
+   - **RISK MATRIX**: risk flags (severity, type, summary, evidence/citations)
+   - **EXTRACTION LOG**: extracted meds table
+   - **SYSTEM TRACE**: step timings (extract -> validate/repair -> risk checks -> note)
+5) Optional: click **SIGN & FINALIZE** to show explicit human signoff (still a draft, not medical advice).
 
 ### 1:50 - 2:20 What MedGemma adds
 
-- Switch to `medgemma` mode.
+- Expand **// SYSTEM CONFIGURATION** and switch **INFERENCE ENGINE = medgemma**.
 - Explain:
-  - "MedGemma converts messy text into strict JSON (meds, allergies, eGFR when present)."
-  - "Deterministic rule engine does the safety checks; citations are auditable."
+   - "MedGemma converts messy text into strict JSON (meds, allergies, eGFR when present)."
+   - "Deterministic rule engine does the safety checks; citations are auditable."
+   - "The agent validates outputs and retries when JSON is invalid (bounded repair loop)."
 
 - Call out one concrete before/after (example):
   - "On a messy note with comma lists, section headers, or free-text allergies, baseline extraction can miss entities; MedGemma is more robust because it is trained for medical text understanding."
 
-If model weights aren't available on your recording machine, narrate this step with a screenshot and say baseline mode remains fully reproducible.
+Note: MedGemma mode may be slower on consumer GPUs. If weights aren't available, narrate this step with a screenshot and say baseline mode remains fully reproducible.
 
 ### 2:20 - 2:45 Evaluation + reproducibility
 
