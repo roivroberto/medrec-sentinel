@@ -17,6 +17,18 @@ MedRec Sentinel is a hybrid system:
 - **Deterministic risk engine:** applies a small curated medication safety knowledge base (auditable rules + citations) to generate risk flags.
 - **Human-centered output:** produces a pharmacist-facing draft note with risks, verification questions, citations, and a clear disclaimer.
 
+### Why this is an agentic workflow (not just a one-shot model)
+
+The core system behaves like an audit-first "agent" with tool calls and checkpoints:
+
+1) **Extract (tool call):** MedGemma converts messy free text into a strict JSON contract.
+2) **Validate (checkpoint):** JSON is parsed and validated against a schema.
+3) **Repair/retry (agent loop):** if the model output is not valid JSON, the system automatically asks for a repaired JSON output and retries (bounded attempts).
+4) **Run deterministic tools:** rule-based safety checks run with citations.
+5) **Propose next actions:** the output includes explicit verification questions for the clinician/pharmacist.
+
+This makes the system safer and more usable in a real workflow: the model is constrained to extraction; safety decisions are auditable; and the human remains in control.
+
 ### Baseline vs MedGemma (what's reproducible)
 
 - **baseline mode (default):** no model download required; runs anywhere.
@@ -33,6 +45,8 @@ Why this matters for judges: baseline demonstrates end-to-end feasibility and au
    - extracted meds table
    - risk flags + citations
    - draft pharmacist note for signoff
+
+In the demo UI, the system exposes an **"Agent trace"** with step timings so a reviewer can see each tool/checkpoint executed.
 
 ## 3. System design
 

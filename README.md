@@ -1,7 +1,18 @@
-# MedGemma-Challenge
+# MedRec Sentinel (MedGemma Impact Challenge)
+
+Audit-first medication reconciliation for discharge workflows.
+
+This project is aimed at the **Agentic Workflow Prize**: MedGemma is used as a callable
+extraction tool inside a larger workflow that validates outputs, runs deterministic
+safety checks, and produces a pharmacist-facing draft note with verification questions.
+
+Safety notes:
+- Do not use with real PHI in this repo/demo.
+- Outputs are drafts for clinician review (not medical advice).
 
 ## Docs (start here if you're judging)
 
+- `docs/kaggle_writeup.md` (template-compliant Kaggle writeup draft)
 - `docs/writeup_3pager.md` (project narrative)
 - `docs/demo_script.md` (<= 3 min walkthrough)
 - `docs/clinical_rubric.md` (how we'd evaluate with clinicians)
@@ -21,6 +32,9 @@ python3 -m medrec_sentinel.eval.run_eval --data data/synth/cases.jsonl --mode ba
 
 python3 demo/gradio_app.py
 ```
+
+Tip: `medgemma` mode is slower than `baseline` (local 4B model). For interactive demos,
+record with `baseline` and show a single pre-warmed `medgemma` run.
 
 ## Baseline eval (no model required)
 
