@@ -13,7 +13,6 @@ Safety notes:
 ## Start Here (Judges)
 
 - Narrative + architecture: `docs/writeup_3pager.md`
-- Demo walkthrough script (<= 3 min): `docs/demo_script.md`
 - Kaggle Writeup draft (template headings): `docs/kaggle_writeup.md`
 
 ## Quickstart (Baseline, No Model Required)
@@ -73,4 +72,3 @@ Kaggle: set `HUGGINGFACE_TOKEN` as a Kaggle Secret, then run `notebooks/kaggle_s
 - `scripts/download_model.py` defaults to `/kaggle/working/models` when it detects Kaggle.
 - `notebooks/kaggle_submission.py` will auto-detect the repo under `/kaggle/input/<dataset>`.
   - If auto-detect fails, set `MEDREC_SENTINEL_ROOT=/kaggle/input/<dataset>`.
-
