@@ -7,8 +7,8 @@ MedRec Sentinel
 - Roi Victor Roberto (solo)
 
 Links:
-- Video (<= 3 minutes): TODO
-- Code: https://github.com/roivroberto/MedGemma-Challenge (branch: `feat/medrec-sentinel`)
+- Video (<= 3 minutes): https://drive.google.com/file/d/1V0d28CIeWuZsap6EzgIGdcDGeKRconlx/view?usp=sharing
+- Code: https://github.com/roivroberto/MedGemma-Challenge/tree/feat/medrec-sentinel
 - Demo (bonus): run locally via `python3 demo/gradio_app.py`
 
 ### Problem statement
