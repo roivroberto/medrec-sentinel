@@ -1,6 +1,6 @@
 # 🏥🛡️ MedRec Sentinel
 
-Audit-first medication reconciliation for discharge workflows.
+### Audit-first medication reconciliation for discharge workflows.
 
 [![Top Language](https://img.shields.io/github/languages/top/roivroberto/medrec-sentinel)](https://github.com/roivroberto/medrec-sentinel) [![Repo size](https://img.shields.io/github/repo-size/roivroberto/medrec-sentinel)](https://github.com/roivroberto/medrec-sentinel) [![Last commit](https://img.shields.io/github/last-commit/roivroberto/medrec-sentinel)](https://github.com/roivroberto/medrec-sentinel) [![Stars](https://img.shields.io/github/stars/roivroberto/medrec-sentinel?style=social)](https://github.com/roivroberto/medrec-sentinel) [![Forks](https://img.shields.io/github/forks/roivroberto/medrec-sentinel?style=social)](https://github.com/roivroberto/medrec-sentinel) [![License](https://img.shields.io/github/license/roivroberto/medrec-sentinel)](https://github.com/roivroberto/medrec-sentinel)
 
