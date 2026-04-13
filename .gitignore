@@ -56,6 +56,7 @@ pytorch_model.bin
 
 # OS/editor
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
 
